@@ -383,3 +383,285 @@ function initSlideshow() {
 }
 
 document.addEventListener('DOMContentLoaded', initSlideshow);
+
+// ============ GALLERY VIEWER SYSTEM ============
+
+let currentGalleryIndex = 1;
+const totalImages = 32;
+const emotionFallContainer = document.getElementById('emotion-fall-container') || (() => {
+    const div = document.createElement('div');
+    div.id = 'emotion-fall-container';
+    document.body.appendChild(div);
+    return div;
+})();
+
+// Emotion icons list
+const emotions = ['❤️', '😍', '🥰', '😘', '🎉', '✨', '🌟', '💖', '💕', '💗', '🌸', '🎂'];
+
+// Create Gallery Viewer HTML
+function createGalleryViewer() {
+    const viewer = document.createElement('div');
+    viewer.id = 'gallery-viewer';
+    viewer.innerHTML = `
+        <div class="gallery-main">
+            <img id="gallery-image" src="" alt="Gallery Image">
+            <button class="gallery-nav" id="gallery-prev">❮</button>
+            <button class="gallery-nav" id="gallery-next">❯</button>
+            <button class="gallery-close" id="gallery-close">✕</button>
+            
+            <div class="emotion-bar" id="emotion-bar">
+                ${emotions.slice(0, 6).map(emoji => 
+                    `<span class="emotion-icon" data-emoji="${emoji}">${emoji}</span>`
+                ).join('')}
+            </div>
+            
+            <div class="thumbnail-strip" id="thumbnail-strip"></div>
+        </div>
+    `;
+    document.body.appendChild(viewer);
+    
+    // Populate thumbnails
+    const strip = document.getElementById('thumbnail-strip');
+    for (let i = 1; i <= totalImages; i++) {
+        const thumb = document.createElement('img');
+        thumb.src = `./style/img/Anh (${i}).jpg`;
+        thumb.className = 'thumbnail' + (i === 1 ? ' active' : '');
+        thumb.dataset.index = i;
+        thumb.addEventListener('click', () => {
+            currentGalleryIndex = i;
+            updateGalleryImage();
+        });
+        strip.appendChild(thumb);
+    }
+    
+    // Bind events
+    document.getElementById('gallery-close').addEventListener('click', closeGallery);
+    document.getElementById('gallery-prev').addEventListener('click', () => {
+        currentGalleryIndex = currentGalleryIndex > 1 ? currentGalleryIndex - 1 : totalImages;
+        updateGalleryImage();
+    });
+    document.getElementById('gallery-next').addEventListener('click', () => {
+        currentGalleryIndex = currentGalleryIndex < totalImages ? currentGalleryIndex + 1 : 1;
+        updateGalleryImage();
+    });
+    
+    // Emotion icon click handlers
+    document.querySelectorAll('.emotion-icon').forEach(icon => {
+        icon.addEventListener('click', function(e) {
+            const emoji = this.dataset.emoji;
+            // Create single falling emotion
+            createFallingEmotion(emoji, e.clientX, e.clientY);
+            
+            // Rapid clicking effect - create many emotions
+            const clickCount = parseInt(this.dataset.clickCount || '0') + 1;
+            this.dataset.clickCount = clickCount;
+            
+            if (clickCount >= 3) {
+                // Burst effect when clicked rapidly
+                for (let i = 0; i < 20; i++) {
+                    setTimeout(() => {
+                        createFallingEmotion(emoji, 
+                            Math.random() * window.innerWidth, 
+                            -50 - Math.random() * 200
+                        );
+                    }, i * 30);
+                }
+                this.dataset.clickCount = '0';
+            }
+            
+            // Reset click count after delay
+            clearTimeout(this.clickTimeout);
+            this.clickTimeout = setTimeout(() => {
+                this.dataset.clickCount = '0';
+            }, 500);
+        });
+    });
+    
+    // Keyboard navigation
+    document.addEventListener('keydown', handleGalleryKeydown);
+    
+    return viewer;
+}
+
+// Create falling emotion
+function createFallingEmotion(emoji, x, y) {
+    const emotion = document.createElement('div');
+    emotion.className = 'falling-emotion';
+    emotion.textContent = emoji;
+    
+    const size = Math.random() * 20 + 25; // 25-45px
+    const duration = Math.random() * 3 + 4; // 4-7s
+    const rotation = Math.random() * 720 - 360;
+    const left = x !== undefined ? x : Math.random() * window.innerWidth;
+    
+    emotion.style.left = left + 'px';
+    emotion.style.top = (y !== undefined ? y : -50) + 'px';
+    emotion.style.fontSize = size + 'px';
+    emotion.style.animationDuration = duration + 's';
+    emotion.style.transform = `rotate(${rotation}deg)`;
+    
+    emotionFallContainer.appendChild(emotion);
+    
+    // Remove after animation
+    setTimeout(() => {
+        emotion.remove();
+    }, duration * 1000);
+}
+
+// Rain emotions across the whole screen
+function rainEmotions(emoji, count = 50) {
+    for (let i = 0; i < count; i++) {
+        setTimeout(() => {
+            const x = Math.random() * window.innerWidth;
+            const y = -50 - Math.random() * 300;
+            createFallingEmotion(emoji, x, y);
+        }, i * 50);
+    }
+}
+
+// Update gallery image and active thumbnail
+function updateGalleryImage() {
+    const galleryImage = document.getElementById('gallery-image');
+    if (galleryImage) {
+        galleryImage.src = `./style/img/Anh (${currentGalleryIndex}).jpg`;
+    }
+    
+    // Update active thumbnail
+    document.querySelectorAll('.thumbnail').forEach((thumb, idx) => {
+        if (idx + 1 === currentGalleryIndex) {
+            thumb.classList.add('active');
+        } else {
+            thumb.classList.remove('active');
+        }
+    });
+}
+
+// Open gallery
+function openGallery(startIndex = 1) {
+    let viewer = document.getElementById('gallery-viewer');
+    if (!viewer) {
+        viewer = createGalleryViewer();
+    }
+    
+    currentGalleryIndex = startIndex;
+    updateGalleryImage();
+    viewer.style.display = 'flex';
+    
+    // Disable body scroll
+    document.body.style.overflow = 'hidden';
+}
+
+// Close gallery
+function closeGallery() {
+    const viewer = document.getElementById('gallery-viewer');
+    if (viewer) {
+        viewer.style.display = 'none';
+    }
+    
+    // Clear all falling emotions
+    emotionFallContainer.innerHTML = '';
+    
+    // Enable body scroll
+    document.body.style.overflow = '';
+}
+
+// Handle keyboard navigation
+function handleGalleryKeydown(e) {
+    const viewer = document.getElementById('gallery-viewer');
+    if (!viewer || viewer.style.display !== 'flex') return;
+    
+    switch(e.key) {
+        case 'ArrowLeft':
+            currentGalleryIndex = currentGalleryIndex > 1 ? currentGalleryIndex - 1 : totalImages;
+            updateGalleryImage();
+            e.preventDefault();
+            break;
+        case 'ArrowRight':
+            currentGalleryIndex = currentGalleryIndex < totalImages ? currentGalleryIndex + 1 : 1;
+            updateGalleryImage();
+            e.preventDefault();
+            break;
+        case 'Escape':
+            closeGallery();
+            e.preventDefault();
+            break;
+    }
+}
+
+// Add "View Gallery" button to the name section
+function addViewGalleryButton() {
+    const nameDiv = document.querySelector('.name');
+    if (nameDiv && !document.getElementById('view-gallery-btn')) {
+        const btn = document.createElement('button');
+        btn.id = 'view-gallery-btn';
+        btn.innerHTML = '📸 Xem ảnh';
+        btn.addEventListener('click', () => openGallery(1));
+        nameDiv.appendChild(btn);
+    }
+}
+
+// Make images in the main box clickable to open gallery
+function makeImageClickable() {
+    const imageBox = document.querySelector('.box__account .image');
+    if (imageBox) {
+        imageBox.style.cursor = 'pointer';
+        imageBox.addEventListener('click', () => {
+            // Get current active image index
+            const activeImg = imageBox.querySelector('img.active');
+            let index = 1;
+            if (activeImg) {
+                const src = activeImg.src;
+                const match = src.match(/Anh \((\d+)\)\.jpg/);
+                if (match) {
+                    index = parseInt(match[1]);
+                }
+            }
+            openGallery(index);
+        });
+    }
+}
+
+// Initialize gallery features after DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+        addViewGalleryButton();
+        makeImageClickable();
+    }, 500);
+});
+
+// Double-click emotion to rain across screen
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('emotion-icon')) {
+        // Long press or double-click simulation
+        const emoji = e.target.dataset.emoji;
+        
+        if (e.detail === 2) {
+            // Double click - rain emotions
+            rainEmotions(emoji, 40);
+        }
+    }
+});
+
+// Touch support for mobile
+let touchStartTime;
+document.addEventListener('touchstart', function(e) {
+    if (e.target.classList.contains('emotion-icon')) {
+        touchStartTime = Date.now();
+    }
+});
+
+document.addEventListener('touchend', function(e) {
+    if (e.target.classList.contains('emotion-icon')) {
+        const touchDuration = Date.now() - touchStartTime;
+        const emoji = e.target.dataset.emoji;
+        
+        if (touchDuration > 500) {
+            // Long press - rain emotions
+            rainEmotions(emoji, 30);
+        }
+    }
+});
+
+// Export functions for use in other parts
+window.openGallery = openGallery;
+window.rainEmotions = rainEmotions;
