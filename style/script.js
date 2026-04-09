@@ -445,3 +445,131 @@ document.addEventListener('touchend', function(e) { if (e.target.classList.conta
 
 window.openGallery = openGallery;
 window.rainEmotions = rainEmotions;
+
+
+// ========== VINYL MUSIC PLAYER (Tích hợp phân tích) ==========
+const playlist = [
+    { title: "Pháo Hoa Rực Rỡ", artist: "Hoa Mặt Trời", src: "./music/song1.mp3", cover: "./music/covers/cover1.jpg" },
+    { title: "Tháng Năm Không Quên", artist: "Mùa Hạ Xanh", src: "./music/song2.mp3", cover: "./music/covers/cover2.jpg" },
+    { title: "Năm Tháng Trôi Qua", artist: "Hoàng Hôn", src: "./music/song3.mp3", cover: "./music/covers/cover3.jpg" },
+    { title: "Nhớ Mãi Chuyện Đời", artist: "Kỷ Niệm", src: "./music/song4.mp3", cover: "./music/covers/default.jpg" }
+];
+
+let currentTrack = 0;
+let isPlaying = false;
+const audio = new Audio();
+
+// DOM elements
+const vinylDisc = document.getElementById('vinyl-disc');
+const vinylPlayer = document.querySelector('.vinyl-player');
+const playPauseBtn = document.getElementById('play-pause-btn');
+const prevBtn = document.getElementById('prev-btn');
+const nextBtn = document.getElementById('next-btn');
+const trackTitle = document.getElementById('track-title');
+const trackArtist = document.getElementById('track-artist');
+const coverImg = document.getElementById('cover-img');
+const progressBar = document.getElementById('progress-bar');
+const currentTimeEl = document.getElementById('current-time');
+const durationTimeEl = document.getElementById('duration-time');
+const playlistEl = document.getElementById('mini-playlist');
+const musicToggle = document.getElementById('music-toggle');
+
+// Format time
+function formatTime(sec) {
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
+// Load track
+function loadTrack(index) {
+    const track = playlist[index];
+    audio.src = track.src;
+    trackTitle.textContent = track.title;
+    trackArtist.textContent = track.artist;
+    coverImg.src = track.cover || './music/covers/default.jpg';
+    updatePlaylistUI();
+}
+
+// Play/Pause toggle
+function togglePlayPause() {
+    if (isPlaying) {
+        audio.pause();
+        vinylDisc.classList.remove('playing');
+        vinylPlayer.classList.remove('playing');
+        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+    } else {
+        audio.play().catch(e => console.log(e));
+        vinylDisc.classList.add('playing');
+        vinylPlayer.classList.add('playing');
+        playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+    }
+    isPlaying = !isPlaying;
+}
+
+// Next/Prev
+function nextTrack() {
+    currentTrack = (currentTrack + 1) % playlist.length;
+    loadTrack(currentTrack);
+    if (isPlaying) audio.play();
+}
+function prevTrack() {
+    currentTrack = (currentTrack - 1 + playlist.length) % playlist.length;
+    loadTrack(currentTrack);
+    if (isPlaying) audio.play();
+}
+
+// Update progress bar & time
+audio.addEventListener('timeupdate', () => {
+    if (audio.duration) {
+        const percent = (audio.currentTime / audio.duration) * 100;
+        progressBar.value = percent;
+        currentTimeEl.textContent = formatTime(audio.currentTime);
+        durationTimeEl.textContent = formatTime(audio.duration);
+    }
+});
+progressBar.addEventListener('input', () => {
+    audio.currentTime = (progressBar.value / 100) * audio.duration;
+});
+
+audio.addEventListener('ended', nextTrack);
+
+// Render playlist
+function updatePlaylistUI() {
+    playlistEl.innerHTML = playlist.map((track, idx) => `
+        <div class="playlist-item ${idx === currentTrack ? 'active' : ''}" data-index="${idx}">
+            <span>${track.title}</span>
+            <span>${track.artist}</span>
+        </div>
+    `).join('');
+    document.querySelectorAll('.playlist-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const idx = parseInt(item.dataset.index);
+            if (idx !== currentTrack) {
+                currentTrack = idx;
+                loadTrack(currentTrack);
+                if (isPlaying) audio.play();
+            }
+        });
+    });
+}
+
+// Toggle player visibility
+musicToggle.addEventListener('click', () => {
+    vinylPlayer.classList.toggle('hidden');
+});
+
+// Init player
+function initVinylPlayer() {
+    loadTrack(0);
+    playPauseBtn.addEventListener('click', togglePlayPause);
+    prevBtn.addEventListener('click', prevTrack);
+    nextBtn.addEventListener('click', nextTrack);
+    updatePlaylistUI();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initVinylPlayer);
+} else {
+    initVinylPlayer();
+}
